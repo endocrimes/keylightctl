@@ -7,7 +7,7 @@ github.com/bgentry/speakeasy
 # github.com/endocrimes/keylight-go v0.0.0-20200428145519-32eb29fbd1d4
 ## explicit
 github.com/endocrimes/keylight-go
-# github.com/fatih/color v1.7.0
+# github.com/fatih/color v1.9.0
 github.com/fatih/color
 # github.com/go-openapi/errors v0.19.2
 github.com/go-openapi/errors
@@ -16,6 +16,8 @@ github.com/go-openapi/errors
 github.com/go-openapi/strfmt
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
+# github.com/goreleaser/goreleaser v0.132.1
+## explicit
 # github.com/hashicorp/errwrap v1.0.0
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.0.0
@@ -24,10 +26,10 @@ github.com/hashicorp/go-multierror
 ## explicit
 github.com/jedib0t/go-pretty/table
 github.com/jedib0t/go-pretty/text
-# github.com/mattn/go-colorable v0.0.9
+# github.com/mattn/go-colorable v0.1.4
 ## explicit
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.3
+# github.com/mattn/go-isatty v0.0.11
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.9
 ## explicit

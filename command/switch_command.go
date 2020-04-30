@@ -118,16 +118,7 @@ func (c *SwitchCommand) Run(args []string) int {
 		return 1
 	}
 
-	valid := validateAllRequiredLights(found, lights)
-	if !valid {
-		c.UI.Error("Missing required lights, found:")
-		for _, light := range found {
-			c.UI.Error(fmt.Sprintf("- %s", light.Name))
-		}
-		return 1
-	}
-
-	updateCtx, updateCancelFn := context.WithTimeout(context.Background(), 5*time.Second)
+	updateCtx, updateCancelFn := context.WithTimeout(context.Background(), 15*time.Second)
 	defer updateCancelFn()
 
 	for _, light := range found {
@@ -150,14 +141,4 @@ func (c *SwitchCommand) Run(args []string) int {
 	}
 
 	return 0
-}
-
-func validateAllRequiredLights(lights []*keylight.KeyLight, requirements []string) bool {
-	if len(requirements) == 0 {
-		return true
-	}
-
-	// TODO: Implement me.
-
-	return true
 }

@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/endocrimes/keylight-go"
@@ -23,10 +24,14 @@ type lightDiscoverer struct {
 	AllLights      bool
 	Discovery      keylight.Discovery
 
-	discoveredLights []*keylight.KeyLight
+	discoveredLights map[string]*keylight.KeyLight
 }
 
 func (l *lightDiscoverer) runCollector(ctx context.Context) error {
+	if l.discoveredLights == nil {
+		l.discoveredLights = make(map[string]*keylight.KeyLight)
+	}
+
 	resultsCh := l.Discovery.ResultsCh()
 	for {
 		select {
@@ -38,7 +43,7 @@ func (l *lightDiscoverer) runCollector(ctx context.Context) error {
 			}
 
 			if l.AllLights {
-				l.discoveredLights = append(l.discoveredLights, light)
+				l.discoveredLights[light.Name] = light
 				continue
 			}
 
@@ -46,18 +51,41 @@ func (l *lightDiscoverer) runCollector(ctx context.Context) error {
 				// TODO: Should check if the requirement is a full name or short name
 				//       and compare differently based on the two (full match vs suffix)
 				if strings.HasSuffix(light.Name, req) {
-					l.discoveredLights = append(l.discoveredLights, light)
+					l.discoveredLights[light.Name] = light
 				}
 			}
 
-			// TODO: Potential bug here if a light is discovered multiple times during
-			//       this phase (e.g flaky network or power cycling). Should probably
-			//       store discovered lights as map[name]light to avoid this.
 			if len(l.discoveredLights) == len(l.RequiredLights) {
 				return nil
 			}
 		}
 	}
+}
+
+func validateAllRequiredLights(lights []*keylight.KeyLight, requirements []string) error {
+	if len(requirements) == 0 {
+		return nil
+	}
+
+REQUIREMENTS:
+	for _, req := range requirements {
+		for _, light := range lights {
+			if strings.HasSuffix(light.Name, req) {
+				continue REQUIREMENTS
+			}
+		}
+		return fmt.Errorf("no light found for requirement '%s'", req)
+	}
+
+	return nil
+}
+
+func (l *lightDiscoverer) DiscoveredLights() []*keylight.KeyLight {
+	var result []*keylight.KeyLight
+	for _, light := range l.discoveredLights {
+		result = append(result, light)
+	}
+	return result
 }
 
 func (l *lightDiscoverer) Run(ctx context.Context) ([]*keylight.KeyLight, error) {
@@ -84,5 +112,10 @@ func (l *lightDiscoverer) Run(ctx context.Context) ([]*keylight.KeyLight, error)
 		return nil, discoveryErr
 	}
 
-	return l.discoveredLights, nil
+	lights := l.DiscoveredLights()
+	err = validateAllRequiredLights(lights, l.RequiredLights)
+	if err != nil {
+		return nil, err
+	}
+	return lights, nil
 }

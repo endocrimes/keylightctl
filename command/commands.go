@@ -9,5 +9,10 @@ func Commands(metaPtr *Meta) map[string]cli.CommandFactory {
 				Meta: *metaPtr,
 			}, nil
 		},
+		"switch": func() (cli.Command, error) {
+			return &SwitchCommand{
+				Meta: *metaPtr,
+			}, nil
+		},
 	}
 }

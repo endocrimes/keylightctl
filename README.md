@@ -7,18 +7,31 @@ Airs](https://www.elgato.com/en/gaming/key-light-air).
 A library for interacting with the lights yourself is available at
 [endocrimes/keylight-go](https://github.com/endocrimes/keylight-go).
 
-## Usage
-
-### Discover keylights on your local network
+## Example
 
 ```bash
-> ./keylightctl discover
-  Starting discovery
-  - Elgato\ Key\ Light\ 861A
-  Found 1 light(s) during discovery
+[keylightctl(master)] $ ./bin/keylightctl describe --all
++---+--------------------------+-------------+------------+-------------+
+| # | NAME                     | POWER STATE | BRIGHTNESS | TEMPERATURE |
++---+--------------------------+-------------+------------+-------------+
+| 0 | Elgato\ Key\ Light\ 861A | on          |         50 |         295 |
++---+--------------------------+-------------+------------+-------------+
+[keylightctl(master)] $ ./bin/keylightctl switch --light 861A off               
+[keylightctl(master)] $ ./bin/keylightctl describe --all         
++---+--------------------------+-------------+------------+-------------+
+| # | NAME                     | POWER STATE | BRIGHTNESS | TEMPERATURE |
++---+--------------------------+-------------+------------+-------------+
+| 0 | Elgato\ Key\ Light\ 861A | off         |         50 |         295 |
++---+--------------------------+-------------+------------+-------------+
+[keylightctl(master)] $ ./bin/keylightctl switch --light 861A --brightness 25 on
+[keylightctl(master)] $ ./bin/keylightctl describe --all                        
+==> Found no matching lights during discovery
+[keylightctl(master)] $ ./bin/keylightctl describe --all
++---+--------------------------+-------------+------------+-------------+
+| # | NAME                     | POWER STATE | BRIGHTNESS | TEMPERATURE |
++---+--------------------------+-------------+------------+-------------+
+| 0 | Elgato\ Key\ Light\ 861A | on          |         25 |         295 |
++---+--------------------------+-------------+------------+-------------+
+[keylightctl(master)] $ 
 ```
 
-### Turn all discovered lights on
-
-```bash
-```

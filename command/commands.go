@@ -14,5 +14,10 @@ func Commands(metaPtr *Meta) map[string]cli.CommandFactory {
 				Meta: *metaPtr,
 			}, nil
 		},
+		"describe": func() (cli.Command, error) {
+			return &DescribeCommand{
+				Meta: *metaPtr,
+			}, nil
+		},
 	}
 }

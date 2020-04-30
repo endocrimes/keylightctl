@@ -3,56 +3,52 @@ package command
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/endocrimes/keylight-go"
+	"github.com/jedib0t/go-pretty/table"
 	"github.com/mitchellh/cli"
 )
 
-type SwitchCommand struct {
+type DescribeCommand struct {
 	Meta
 }
 
-func (c *SwitchCommand) Help() string {
+func (c *DescribeCommand) Help() string {
 	helpText := `
-Usage: keylightctl switch <on|off> [options]
+Usage: keylightctl describe [options]
 
- Switch keylights on and off.
+ Describe the current state of the detected keylights
 
 General Options:
 
   ` + generalOptionsUsage() + `
 
-Switch Specific Options:
+Describe Specific Options:
 
   -timeout <duration>
     Sets the maximum time to listen for accessories (default: 5s)
 
   -all
-    Modify all keylights that are discovered within the timeout window
+    Describe all keylights that are discovered within the timeout window
 
   -light <light-id>
     Modify the provided light ID. Can either be a full key light name, e.g:
     Elgato\ Key\ Light\ 111A, or a short ID, e.g: 111A. -light can be provided
-    multiple times and all provided lights will be modified.
-
-  -brightness <brightness>
-    When switching the light, also set the brightness to the given percentage.
-
-  -temperature <temperature>
-    When switching the light, also set the temperature to the given value.
+    multiple times and all provided lights will be described.
 `
 	return strings.TrimSpace(helpText)
 }
 
-func (f *SwitchCommand) Synopsis() string {
-	return "Switch keylights on and off"
+func (f *DescribeCommand) Synopsis() string {
+	return "Describe the current state of the detected keylights"
 }
 
-func (f *SwitchCommand) Name() string { return "switch" }
+func (f *DescribeCommand) Name() string { return "describe" }
 
-func (c *SwitchCommand) Run(args []string) int {
+func (c *DescribeCommand) Run(args []string) int {
 	c.UI = &cli.PrefixedUi{
 		OutputPrefix: "  ",
 		InfoPrefix:   "  ",
@@ -63,36 +59,22 @@ func (c *SwitchCommand) Run(args []string) int {
 	var timeout time.Duration
 	var lights lightListFlags
 	var allLights bool
-	var brightness, temperature int
 
 	flags := c.Meta.FlagSet(c.Name(), FlagSetClient)
 	flags.Usage = func() { c.UI.Output(c.Help()) }
 	flags.DurationVar(&timeout, "timeout", 5*time.Second, "")
 	flags.Var(&lights, "light", "")
 	flags.BoolVar(&allLights, "all", false, "")
-	flags.IntVar(&brightness, "brightness", -1, "")
-	flags.IntVar(&temperature, "temperature", -1, "")
 
 	if err := flags.Parse(args); err != nil {
 		return 1
 	}
 
 	args = flags.Args()
-	if l := len(args); l != 1 {
-		c.UI.Error("This command requires (1) argument")
+	if l := len(args); l != 0 {
+		c.UI.Error("This command takes no arguments")
 		c.UI.Error(commandErrorText(c))
 		return 1
-	}
-
-	if args[0] != "on" && args[0] != "off" {
-		c.UI.Error("Argument must be 'on' or off'")
-		c.UI.Error(commandErrorText(c))
-		return 1
-	}
-
-	desiredPowerState := 0
-	if args[0] == "on" {
-		desiredPowerState = 1
 	}
 
 	if allLights && len(lights) != 0 {
@@ -136,30 +118,26 @@ func (c *SwitchCommand) Run(args []string) int {
 	updateCtx, updateCancelFn := context.WithTimeout(context.Background(), 15*time.Second)
 	defer updateCancelFn()
 
-	for _, light := range found {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"#", "Name", "Power State", "Brightness", "Temperature"})
+
+	for idx, light := range found {
 		opts, err := light.FetchLightOptions(updateCtx)
 		if err != nil {
 			c.UI.Error(fmt.Sprintf("Failed to fetch light options (%s), err: %v", light.Name, err))
 			return 1
 		}
-
-		newOpts := opts.Copy()
-		for _, l := range newOpts.Lights {
-			l.On = desiredPowerState
-			if temperature >= 0 {
-				l.Temperature = temperature
-			}
-			if brightness >= 0 {
-				l.Brightness = brightness
-			}
+		powerState := "off"
+		if opts.Lights[0].On == 1 {
+			powerState = "on"
 		}
 
-		_, err = light.UpdateLightOptions(updateCtx, newOpts)
-		if err != nil {
-			c.UI.Error(fmt.Sprintf("Failed to update light (%s), err: %v", light.Name, err))
-			return 1
-		}
+		t.AppendRows([]table.Row{
+			{idx, light.Name, powerState, opts.Lights[0].Brightness, opts.Lights[0].Temperature},
+		})
 	}
+	t.Render()
 
 	return 0
 }

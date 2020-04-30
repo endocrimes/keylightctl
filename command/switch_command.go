@@ -36,6 +36,12 @@ Switch Specific Options:
     Modify the provided light ID. Can either be a full key light name, e.g:
     Elgato\ Key\ Light\ 111A, or a short ID, e.g: 111A. -light can be provided
     multiple times and all provided lights will be modified.
+
+  -brightness <brightness>
+    When switching the light, also set the brightness to the given percentage.
+
+  -temperature <temperature>
+    When switching the light, also set the temperature to the given value.
 `
 	return strings.TrimSpace(helpText)
 }
@@ -57,12 +63,15 @@ func (c *SwitchCommand) Run(args []string) int {
 	var timeout time.Duration
 	var lights lightListFlags
 	var allLights bool
+	var brightness, temperature int
 
 	flags := c.Meta.FlagSet(c.Name(), FlagSetClient)
 	flags.Usage = func() { c.UI.Output(c.Help()) }
 	flags.DurationVar(&timeout, "timeout", 5*time.Second, "")
 	flags.Var(&lights, "light", "")
 	flags.BoolVar(&allLights, "all", false, "")
+	flags.IntVar(&brightness, "brightness", -1, "")
+	flags.IntVar(&temperature, "temperature", -1, "")
 
 	if err := flags.Parse(args); err != nil {
 		return 1
@@ -131,6 +140,12 @@ func (c *SwitchCommand) Run(args []string) int {
 		newOpts := opts.Copy()
 		for _, l := range newOpts.Lights {
 			l.On = desiredPowerState
+			if temperature >= 0 {
+				l.Temperature = temperature
+			}
+			if brightness >= 0 {
+				l.Brightness = brightness
+			}
 		}
 
 		_, err = light.UpdateLightOptions(updateCtx, newOpts)

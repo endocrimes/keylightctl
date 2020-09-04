@@ -59,6 +59,14 @@ build: fmt ## Build for the current development platform
 	@cp $(PROJECT_ROOT)/$(DEV_TARGET) $(GOPATH)/bin/
 
 
+.PHONY: tools
+tools: GOBIN=$(PROJECT_ROOT)/tools/bin
+tools:
+	@echo "==> Installing tools to tools/bin"
+	@mkdir -p $(GOBIN)
+	@GOBIN=$(GOBIN) go env
+	@cd tools && GOBIN=$(GOBIN) go install github.com/goreleaser/goreleaser
+
 HELP_FORMAT="    \033[36m%-25s\033[0m %s\n"
 .PHONY: help
 help: ## Display this usage information

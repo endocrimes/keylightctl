@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/endocrimes/keylight-go"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/mitchellh/cli"
 )
@@ -89,24 +88,11 @@ func (c *DescribeCommand) Run(args []string) int {
 		return 1
 	}
 
-	discovery, err := keylight.NewDiscovery()
-	if err != nil {
-		c.UI.Error(fmt.Sprintf("Failed to setup mDNS discovery, err: %v", err))
-		return 1
-	}
-
-	discoverer := lightDiscoverer{
-		Discovery:      discovery,
-		AllLights:      allLights,
-		RequiredLights: lights,
-	}
-
 	discoveryCtx, cancelFn := context.WithTimeout(context.Background(), timeout)
-	defer cancelFn()
-
-	found, err := discoverer.Run(discoveryCtx)
+	found, err := discoverLights(discoveryCtx, allLights, lights)
+	cancelFn()
 	if err != nil {
-		c.UI.Error(fmt.Sprintf("Failed to discover lights, err: %v", err))
+		c.UI.Error(err.Error())
 		return 1
 	}
 

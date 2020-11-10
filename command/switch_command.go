@@ -33,9 +33,13 @@ Switch Specific Options:
     Modify all keylights that are discovered within the timeout window
 
   -light <light-id>
-    Modify the provided light ID. Can either be a full key light name, e.g:
+    Control the provided light ID. Can either be a full key light name, e.g:
     Elgato\ Key\ Light\ 111A, or a short ID, e.g: 111A. -light can be provided
     multiple times and all provided lights will be modified.
+
+	-light-addr <addr>:<port>
+    Control the light at the provided address. Can be provided multiple times.
+    Useful when wanting to avoid the slow discovery time over mDNS in automation.
 
   -brightness <brightness>
     When switching the light, also set the brightness to the given percentage.
@@ -61,14 +65,16 @@ func (c *SwitchCommand) Run(args []string) int {
 	}
 
 	var timeout time.Duration
-	var lights lightListFlags
+	var namedLights lightListFlags
+	var addressedLights lightListFlags
 	var allLights bool
 	var brightness, temperature int
 
 	flags := c.Meta.FlagSet(c.Name(), FlagSetClient)
 	flags.Usage = func() { c.UI.Output(c.Help()) }
 	flags.DurationVar(&timeout, "timeout", 5*time.Second, "")
-	flags.Var(&lights, "light", "")
+	flags.Var(&namedLights, "light", "")
+	flags.Var(&addressedLights, "light-addr", "")
 	flags.BoolVar(&allLights, "all", false, "")
 	flags.IntVar(&brightness, "brightness", -1, "")
 	flags.IntVar(&temperature, "temperature", -1, "")
@@ -95,40 +101,27 @@ func (c *SwitchCommand) Run(args []string) int {
 		desiredPowerState = 1
 	}
 
-	if allLights && len(lights) != 0 {
+	if allLights && len(namedLights) != 0 {
 		c.UI.Error("Cannot specify --all and --light")
 		c.UI.Error(commandErrorText(c))
 		return 1
 	}
 
-	if !allLights && len(lights) == 0 {
+	if !allLights && len(namedLights) == 0 {
 		c.UI.Error("Must specify one of --all and --light")
 		c.UI.Error(commandErrorText(c))
 		return 1
 	}
 
-	discovery, err := keylight.NewDiscovery()
+	discoveryCtx, discoveryCancelFn := context.WithTimeout(context.Background(), timeout)
+	found, err := discoverLights(discoveryCtx, allLights, namedLights)
+	discoveryCancelFn()
 	if err != nil {
-		c.UI.Error(fmt.Sprintf("Failed to setup mDNS discovery, err: %v", err))
+		c.UI.Error(err.Error())
 		return 1
 	}
 
-	discoverer := lightDiscoverer{
-		Discovery:      discovery,
-		AllLights:      allLights,
-		RequiredLights: lights,
-	}
-
-	discoveryCtx, cancelFn := context.WithTimeout(context.Background(), timeout)
-	defer cancelFn()
-
-	found, err := discoverer.Run(discoveryCtx)
-	if err != nil {
-		c.UI.Error(fmt.Sprintf("Failed to discover lights, err: %v", err))
-		return 1
-	}
-
-	if len(found) == 0 {
+	if len(addressedLights) == 0 && len(found) == 0 {
 		c.UI.Error("Found no matching lights during discovery")
 		return 1
 	}
@@ -136,30 +129,57 @@ func (c *SwitchCommand) Run(args []string) int {
 	updateCtx, updateCancelFn := context.WithTimeout(context.Background(), 15*time.Second)
 	defer updateCancelFn()
 
-	for _, light := range found {
-		opts, err := light.FetchLightGroup(updateCtx)
-		if err != nil {
-			c.UI.Error(fmt.Sprintf("Failed to fetch light options (%s), err: %v", light.Name, err))
-			return 1
-		}
-
-		newOpts := opts.Copy()
-		for _, l := range newOpts.Lights {
-			l.On = desiredPowerState
-			if temperature >= 0 {
-				l.Temperature = temperature
-			}
-			if brightness >= 0 {
-				l.Brightness = brightness
-			}
-		}
-
-		_, err = light.UpdateLightGroup(updateCtx, newOpts)
-		if err != nil {
-			c.UI.Error(fmt.Sprintf("Failed to update light (%s), err: %v", light.Name, err))
-			return 1
-		}
+	err = updateLights(updateCtx, found, desiredPowerState, temperature, brightness)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Failed to update lights, err: %v", err))
 	}
 
 	return 0
+}
+
+func discoverLights(ctx context.Context, findAllLights bool, namedLights lightListFlags) ([]*keylight.Device, error) {
+	discovery, err := keylight.NewDiscovery()
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup mDNS discovery, err: %v", err)
+	}
+
+	discoverer := lightDiscoverer{
+		Discovery:      discovery,
+		AllLights:      findAllLights,
+		RequiredLights: namedLights,
+	}
+
+	found, err := discoverer.Run(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover lights, err: %v", err)
+	}
+
+	return found, nil
+}
+
+func updateLights(ctx context.Context, devices []*keylight.Device, desiredPowerState, temperature, brightness int) error {
+	for _, dev := range devices {
+		grp, err := dev.FetchLightGroup(ctx)
+		if err != nil {
+			return err
+		}
+
+		newGroup := grp.Copy()
+		for _, light := range newGroup.Lights {
+			light.On = desiredPowerState
+			if temperature >= 0 {
+				light.Temperature = temperature
+			}
+			if brightness >= 0 {
+				light.Brightness = brightness
+			}
+		}
+
+		_, err = dev.UpdateLightGroup(ctx, newGroup)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

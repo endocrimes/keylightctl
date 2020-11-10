@@ -10,7 +10,7 @@ var _ Discovery = &bonjourDiscovery{}
 
 type bonjourDiscovery struct {
 	resolver  *bonjour.Resolver
-	resultsCh chan *KeyLight
+	resultsCh chan *Device
 }
 
 func newBonjourDiscovery() (*bonjourDiscovery, error) {
@@ -21,7 +21,7 @@ func newBonjourDiscovery() (*bonjourDiscovery, error) {
 
 	return &bonjourDiscovery{
 		resolver:  resolver,
-		resultsCh: make(chan *KeyLight, 5), // Buffer a few results to simplify client impls
+		resultsCh: make(chan *Device, 5), // Buffer a few results to simplify client impls
 	}, nil
 }
 
@@ -39,7 +39,7 @@ func (d *bonjourDiscovery) Run(ctx context.Context) error {
 			d.resolver.Exit <- true
 			return nil
 		case e := <-results:
-			d.resultsCh <- &KeyLight{
+			d.resultsCh <- &Device{
 				Name:    e.Instance,
 				DNSAddr: e.HostName,
 				Port:    e.Port,
@@ -48,6 +48,6 @@ func (d *bonjourDiscovery) Run(ctx context.Context) error {
 	}
 }
 
-func (d *bonjourDiscovery) ResultsCh() <-chan *KeyLight {
+func (d *bonjourDiscovery) ResultsCh() <-chan *Device {
 	return d.resultsCh
 }

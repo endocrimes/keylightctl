@@ -2,13 +2,18 @@ package keylight
 
 import "context"
 
-type KeyLight struct {
+// Device represents an actual KeyLight. They can be found using a Discovery
+// interface, or created with a given DNSAddr and Port when running in a static
+// environment.
+type Device struct {
 	Name    string
 	DNSAddr string
 	Port    int
 }
 
-type KeyLightSettings struct {
+// DeviceSettings represents the data returned and accepted by a KeyLight for
+// configuring its behaviour.
+type DeviceSettings struct {
 	PowerOnBehavior       int `json:"powerOnBehavior"`
 	PowerOnBrightness     int `json:"powerOnBrightness"`
 	PowerOnTemperature    int `json:"powerOnTemperature"`
@@ -17,7 +22,11 @@ type KeyLightSettings struct {
 	ColorChangeDurationMs int `json:"colorChangeDurationMs"`
 }
 
-type AccessoryInfo struct {
+// DeviceInfo returns read-only information about a given Elgato device.
+// This is currently only supported by keylight devices but as other devices
+// may expose _elg.tcp services, it may also be suppported by other products
+// in the future.
+type DeviceInfo struct {
 	ProductName         string   `json:"productName"`
 	HardwareBoardType   int      `json:"hardwareBoardType"`
 	FirmwareBuildNumber int      `json:"firmwareBuildNumber"`
@@ -27,28 +36,34 @@ type AccessoryInfo struct {
 	Features            []string `json:"features"`
 }
 
-type KeyLightLight struct {
+// Light is the struct that encapsulates the state of a KeyLight's individual
+// light. Most keylight devices currently only have one 'Light'.
+type Light struct {
 	On          int `json:"on"`
 	Brightness  int `json:"brightness"`
 	Temperature int `json:"temperature"`
 }
 
-func (l *KeyLightLight) Copy() *KeyLightLight {
-	nl := new(KeyLightLight)
+// Copy returns a new copy of a light.
+func (l *Light) Copy() *Light {
+	nl := new(Light)
 	*nl = *l
 	return nl
 }
 
-type KeyLightOptions struct {
-	Count  int              `json:"numberOfLights"`
-	Lights []*KeyLightLight `json:"lights"`
+// LightGroup represents a set of configurable lights within a given KeyLight
+// device.
+type LightGroup struct {
+	Count  int      `json:"numberOfLights"`
+	Lights []*Light `json:"lights"`
 }
 
-func (o *KeyLightOptions) Copy() *KeyLightOptions {
-	no := new(KeyLightOptions)
+// Copy returns a new deep copy of a LightGroup.
+func (o *LightGroup) Copy() *LightGroup {
+	no := new(LightGroup)
 	*no = *o
 
-	lights := make([]*KeyLightLight, len(o.Lights))
+	lights := make([]*Light, len(o.Lights))
 	for idx, light := range o.Lights {
 		lights[idx] = light.Copy()
 	}
@@ -58,6 +73,8 @@ func (o *KeyLightOptions) Copy() *KeyLightOptions {
 	return no
 }
 
+// Discovery is the interface that is exposed to discover KeyLight devices.
+// The default implementation discovers lights via Bonjour.
 type Discovery interface {
 	// Run will start the given discovery client and run syncronously until the
 	// provided context is shutdown.
@@ -66,11 +83,13 @@ type Discovery interface {
 	// ResultsCh returns a channel of discovered Key Lights.
 	// NOTE: It currently does not filter the results so may return non key light
 	//       entities if they expose the `_elg._tcp` service over mdns.
-	//       Use KeyLight.FetchAccessoryInfo(...) to determine the accessory info
+	//       Use KeyLight.FetchDeviceInfo(...) to determine the accessory info
 	//       if you run into problems.
-	ResultsCh() <-chan *KeyLight
+	ResultsCh() <-chan *Device
 }
 
+// NewDiscovery returns a new default Disocvery implemetnation. This is currently
+// backed by Bonjour.
 func NewDiscovery() (Discovery, error) {
 	return newBonjourDiscovery()
 }

@@ -1,6 +1,9 @@
 # keylight-go
 
-A Go library for interacting with Corsair Key Lights.
+A Go library for interacting with Elgato/Corsair Key Lights.
+
+It is known to support both the Elgato KeyLight and the Elgato KeyLight Air's,
+but it has not been tested with the new Ring Light.
 
 ## Usage
 

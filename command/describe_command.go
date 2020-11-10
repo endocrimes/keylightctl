@@ -123,7 +123,7 @@ func (c *DescribeCommand) Run(args []string) int {
 	t.AppendHeader(table.Row{"#", "Name", "Power State", "Brightness", "Temperature"})
 
 	for idx, light := range found {
-		opts, err := light.FetchLightOptions(updateCtx)
+		opts, err := light.FetchLightGroup(updateCtx)
 		if err != nil {
 			c.UI.Error(fmt.Sprintf("Failed to fetch light options (%s), err: %v", light.Name, err))
 			return 1

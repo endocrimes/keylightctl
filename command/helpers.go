@@ -24,12 +24,12 @@ type lightDiscoverer struct {
 	AllLights      bool
 	Discovery      keylight.Discovery
 
-	discoveredLights map[string]*keylight.KeyLight
+	discoveredLights map[string]*keylight.Device
 }
 
 func (l *lightDiscoverer) runCollector(ctx context.Context) error {
 	if l.discoveredLights == nil {
-		l.discoveredLights = make(map[string]*keylight.KeyLight)
+		l.discoveredLights = make(map[string]*keylight.Device)
 	}
 
 	resultsCh := l.Discovery.ResultsCh()
@@ -62,7 +62,7 @@ func (l *lightDiscoverer) runCollector(ctx context.Context) error {
 	}
 }
 
-func validateAllRequiredLights(lights []*keylight.KeyLight, requirements []string) error {
+func validateAllRequiredLights(lights []*keylight.Device, requirements []string) error {
 	if len(requirements) == 0 {
 		return nil
 	}
@@ -80,15 +80,15 @@ REQUIREMENTS:
 	return nil
 }
 
-func (l *lightDiscoverer) DiscoveredLights() []*keylight.KeyLight {
-	var result []*keylight.KeyLight
+func (l *lightDiscoverer) DiscoveredLights() []*keylight.Device {
+	var result []*keylight.Device
 	for _, light := range l.discoveredLights {
 		result = append(result, light)
 	}
 	return result
 }
 
-func (l *lightDiscoverer) Run(ctx context.Context) ([]*keylight.KeyLight, error) {
+func (l *lightDiscoverer) Run(ctx context.Context) ([]*keylight.Device, error) {
 	childCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
 

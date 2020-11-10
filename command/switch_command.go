@@ -137,7 +137,7 @@ func (c *SwitchCommand) Run(args []string) int {
 	defer updateCancelFn()
 
 	for _, light := range found {
-		opts, err := light.FetchLightOptions(updateCtx)
+		opts, err := light.FetchLightGroup(updateCtx)
 		if err != nil {
 			c.UI.Error(fmt.Sprintf("Failed to fetch light options (%s), err: %v", light.Name, err))
 			return 1
@@ -154,7 +154,7 @@ func (c *SwitchCommand) Run(args []string) int {
 			}
 		}
 
-		_, err = light.UpdateLightOptions(updateCtx, newOpts)
+		_, err = light.UpdateLightGroup(updateCtx, newOpts)
 		if err != nil {
 			c.UI.Error(fmt.Sprintf("Failed to update light (%s), err: %v", light.Name, err))
 			return 1

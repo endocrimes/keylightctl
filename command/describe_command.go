@@ -120,7 +120,7 @@ func (c *DescribeCommand) Run(args []string) int {
 
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"#", "Name", "Power State", "Brightness", "Temperature"})
+	t.AppendHeader(table.Row{"#", "Name", "Power State", "Brightness", "Temperature", "Address"})
 
 	for idx, light := range found {
 		opts, err := light.FetchLightOptions(updateCtx)
@@ -134,7 +134,7 @@ func (c *DescribeCommand) Run(args []string) int {
 		}
 
 		t.AppendRows([]table.Row{
-			{idx, light.Name, powerState, opts.Lights[0].Brightness, opts.Lights[0].Temperature},
+			{idx, light.Name, powerState, opts.Lights[0].Brightness, opts.Lights[0].Temperature, fmt.Sprintf("%s:%d", light.DNSAddr, light.Port)},
 		})
 	}
 	t.Render()

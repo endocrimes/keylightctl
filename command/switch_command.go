@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,10 +33,11 @@ Switch Specific Options:
   -all
     Modify all keylights that are discovered within the timeout window
 
-  -light <light-id>
-    Modify the provided light ID. Can either be a full key light name, e.g:
+  -light <light-id-or-addr>
+    Modify the provided light. Can either be a full key light name, e.g:
     Elgato\ Key\ Light\ 111A, or a short ID, e.g: 111A. -light can be provided
-    multiple times and all provided lights will be modified.
+    multiple times and all provided lights will be modified. If only addresses
+    are provided then we will skip going through discovery.
 
   -brightness <brightness>
     When switching the light, also set the brightness to the given percentage.
@@ -61,14 +63,14 @@ func (c *SwitchCommand) Run(args []string) int {
 	}
 
 	var timeout time.Duration
-	var lights lightListFlags
+	var requestedLights lightListFlags
 	var allLights bool
 	var brightness, temperature int
 
 	flags := c.Meta.FlagSet(c.Name(), FlagSetClient)
 	flags.Usage = func() { c.UI.Output(c.Help()) }
 	flags.DurationVar(&timeout, "timeout", 5*time.Second, "")
-	flags.Var(&lights, "light", "")
+	flags.Var(&requestedLights, "light", "")
 	flags.BoolVar(&allLights, "all", false, "")
 	flags.IntVar(&brightness, "brightness", -1, "")
 	flags.IntVar(&temperature, "temperature", -1, "")
@@ -95,34 +97,21 @@ func (c *SwitchCommand) Run(args []string) int {
 		desiredPowerState = 1
 	}
 
-	if allLights && len(lights) != 0 {
-		c.UI.Error("Cannot specify --all and --light")
+	if allLights && len(requestedLights) != 0 {
+		c.UI.Error("Cannot specify --all and --light together")
 		c.UI.Error(commandErrorText(c))
 		return 1
 	}
 
-	if !allLights && len(lights) == 0 {
-		c.UI.Error("Must specify one of --all and --light")
+	if !allLights && len(requestedLights) == 0 {
+		c.UI.Error("One of --all and --light must be provided")
 		c.UI.Error(commandErrorText(c))
 		return 1
-	}
-
-	discovery, err := keylight.NewDiscovery()
-	if err != nil {
-		c.UI.Error(fmt.Sprintf("Failed to setup mDNS discovery, err: %v", err))
-		return 1
-	}
-
-	discoverer := lightDiscoverer{
-		Discovery:      discovery,
-		AllLights:      allLights,
-		RequiredLights: lights,
 	}
 
 	discoveryCtx, cancelFn := context.WithTimeout(context.Background(), timeout)
 	defer cancelFn()
-
-	found, err := discoverer.Run(discoveryCtx)
+	found, err := c.discoverLights(discoveryCtx, requestedLights, allLights)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Failed to discover lights, err: %v", err))
 		return 1
@@ -162,4 +151,77 @@ func (c *SwitchCommand) Run(args []string) int {
 	}
 
 	return 0
+}
+
+func (c *SwitchCommand) discoverLights(ctx context.Context, lightInfo lightListFlags, discoverAll bool) ([]*keylight.KeyLight, error) {
+	var result []*keylight.KeyLight
+
+	specifiedLights := selectLights(lightInfo, isDirectLightAddress)
+	if len(specifiedLights) != 0 {
+		for _, lightAddr := range specifiedLights {
+			parts := strings.Split(lightAddr, ":")
+			port, err := strconv.Atoi(parts[1])
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse port from light (%s), err: %w", lightAddr, err)
+			}
+			light := &keylight.KeyLight{
+				DNSAddr: parts[0],
+				Port:    port,
+			}
+
+			result = append(result, light)
+		}
+	}
+
+	lightsToDiscover := selectLights(lightInfo, invert(isDirectLightAddress))
+	if len(lightsToDiscover) == 0 {
+		return result, nil
+	}
+
+	discovery, err := keylight.NewDiscovery()
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup discoverer, err: %w", err)
+	}
+
+	discoverer := lightDiscoverer{
+		Discovery:      discovery,
+		AllLights:      discoverAll,
+		RequiredLights: lightsToDiscover,
+	}
+
+	discoveredLights, err := discoverer.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result = append(result, discoveredLights...)
+	return result, nil
+}
+
+func selectLights(lights lightListFlags, selectFunc func(string) bool) lightListFlags {
+	var result lightListFlags
+	for _, l := range lights {
+		if selectFunc(l) {
+			result = append(result, l)
+		}
+	}
+
+	return result
+}
+
+// isDirectLightAddress is a hacky implementation to check if the provided string
+// is a light identifier or an address we can use to reach a light - currently it
+// only checks whether the string contains a `:` to seperate the IP or DNS Addr
+// and the Port (as we currently require both, rather than providing a default
+// port).
+func isDirectLightAddress(light string) bool {
+	return strings.Contains(light, ":")
+}
+
+// invert inverts the result of a string -> bool func for use with the
+// `selectLights` function.
+func invert(innerFunc func(string) bool) func(string) bool {
+	return func(str string) bool {
+		return !innerFunc(str)
+	}
 }

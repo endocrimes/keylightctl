@@ -2,7 +2,7 @@ SHELL = bash
 PROJECT_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 THIS_OS := $(shell uname)
 
-BUILDDIR=pkg
+BUILDDIR=dist
 PKG_NAME=keylightctl
 
 GIT_COMMIT := $(shell git rev-parse HEAD)

@@ -174,7 +174,7 @@ func (c *SwitchCommand) discoverLights(ctx context.Context, lightInfo lightListF
 	}
 
 	lightsToDiscover := selectLights(lightInfo, invert(isDirectLightAddress))
-	if len(lightsToDiscover) == 0 {
+	if len(lightsToDiscover) == 0 && !discoverAll {
 		return result, nil
 	}
 

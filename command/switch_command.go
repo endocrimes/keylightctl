@@ -17,7 +17,7 @@ type SwitchCommand struct {
 
 func (c *SwitchCommand) Help() string {
 	helpText := `
-Usage: keylightctl switch [options] <on|off> 
+Usage: keylightctl switch [options] <on|off|toggle> 
 
  Switch keylights on and off.
 
@@ -86,15 +86,18 @@ func (c *SwitchCommand) Run(args []string) int {
 		return 1
 	}
 
-	if args[0] != "on" && args[0] != "off" {
-		c.UI.Error("Argument must be 'on' or off'")
+	if args[0] != "on" && args[0] != "off" && args[0] != "toggle" {
+		c.UI.Error("Argument must be 'on', off', or 'toggle'")
 		c.UI.Error(commandErrorText(c))
 		return 1
 	}
 
+	toggle := false
 	desiredPowerState := 0
 	if args[0] == "on" {
 		desiredPowerState = 1
+	} else if args[0] == "toggle" {
+		toggle = true
 	}
 
 	if allLights && len(requestedLights) != 0 {
@@ -134,7 +137,15 @@ func (c *SwitchCommand) Run(args []string) int {
 
 		newOpts := opts.Copy()
 		for _, l := range newOpts.Lights {
-			l.On = desiredPowerState
+			if toggle {
+				if l.On == 0 {
+					l.On = 1
+				} else {
+					l.On = 0
+				}
+			} else {
+				l.On = desiredPowerState
+			}
 			if temperature >= 0 {
 				l.Temperature = temperature
 			}

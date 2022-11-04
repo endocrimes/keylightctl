@@ -17,7 +17,7 @@ type SwitchCommand struct {
 
 func (c *SwitchCommand) Help() string {
 	helpText := `
-Usage: keylightctl switch [options] <on|off> 
+Usage: keylightctl switch [options] <on|off|toggle> 
 
  Switch keylights on and off.
 
